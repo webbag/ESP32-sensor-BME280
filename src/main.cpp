@@ -1,72 +1,106 @@
-/***************************************************************************
-  This is a library for the BME280 humidity, temperature & pressure sensor
-
-  Designed specifically to work with the Adafruit BME280 Breakout
-  ----> http://www.adafruit.com/products/2650
-
-  These sensors use I2C or SPI to communicate, 2 or 4 pins are required
-  to interface. The device's I2C address is either 0x76 or 0x77.
-
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit andopen-source hardware by purchasing products
-  from Adafruit!
-
-  Written by Limor Fried & Kevin Townsend for Adafruit Industries.
-  BSD license, all text above must be included in any redistribution
-  See the LICENSE file for details.
- ***************************************************************************/
-
+#include <WiFi.h>
 #include <Wire.h>
-#include <SPI.h>
-#include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
- 
-#define SEALEVELPRESSURE_HPA (1011)
+#include <Adafruit_Sensor.h>
 
-Adafruit_BME280 bme; // I2C
-//Adafruit_BME280 bme(BME_CS); // hardware SPI
-//Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
+#define SEALEVELPRESSURE_HPA (1013.25)
 
-unsigned long delayTime;
+Adafruit_BME280 bme; 
+const char* ssid     = "";
+const char* password = "";
+
+WiFiServer server(80);
+
+String header;
+
+unsigned long currentTime = millis();
+unsigned long previousTime = 0; 
+const long timeoutTime = 2000;
 
 void setup() {
-    Serial.begin(115200);
-    while(!Serial);   
-    Serial.println(F("BME280 test"));
+  Serial.begin(115200);
+  bool status;
 
-    unsigned status;
-    
-    status = bme.begin(0x76);  
-    if (!status) {
-        Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
-        Serial.print("SensorID was: 0x"); Serial.println(bme.sensorID(),16);
-        while (1) delay(10);
-    }
-    
-    Serial.println("-- Default Test --");
-    delayTime = 1000;
-    Serial.println();
+  if (!bme.begin(0x76)) {
+    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+    while (1);
+  }
+
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  server.begin();
 }
 
+void loop(){
+  WiFiClient client = server.available();
 
-void loop() { 
-    delay(5000);
-    Serial.print("Temperatura = ");
-    Serial.print(bme.readTemperature());
-    Serial.println(" °C");
-
-    Serial.print("Ciśnienie = ");
-
-    Serial.print(bme.readPressure() / 100.0F);
-    Serial.println(" hPa");
-
-    Serial.print("Przybliżona wysokość = ");
-    Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA) );
-    Serial.println(" m");
-
-    Serial.print("Wilgotność = ");
-    Serial.print(bme.readHumidity());
-    Serial.println(" %");
-
-    Serial.println();
+  if (client) {                          
+    currentTime = millis();
+    previousTime = currentTime;
+    Serial.println("New Client.");       
+    String currentLine = "";                
+    while (client.connected() && currentTime - previousTime <= timeoutTime) { 
+      currentTime = millis();
+      if (client.available()) {             
+        char c = client.read();            
+        Serial.write(c);                   
+        header += c;
+        if (c == '\n') {
+          if (currentLine.length() == 0) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+            client.println("<!DOCTYPE html><html>");
+            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+            client.println("<link rel=\"icon\" href=\"data:,\">");
+            client.println("<style>body { text-align: center; font-family: \"Trebuchet MS\", Arial;}");
+            client.println("table { border-collapse: collapse; width:35%; margin-left:auto; margin-right:auto; }");
+            client.println("th { padding: 12px; background-color: #0043af; color: white; }");
+            client.println("tr { border: 1px solid #ddd; padding: 12px; }");
+            client.println("tr:hover { background-color: #bcbcbc; }");
+            client.println("td { border: none; padding: 12px; }");
+            client.println(".sensor { color:white; font-weight: bold; background-color: #bcbcbc; padding: 1px; }");            
+            client.println("</style></head><body><h1>ESP32 with BME280</h1>");
+            client.println("<table><tr><th>MEASUREMENT</th><th>VALUE</th></tr>");
+            client.println("<tr><td>Temp. Celsius</td><td><span class=\"sensor\">");
+            client.println(bme.readTemperature());
+            client.println(" *C</span></td></tr>");  
+            client.println("<tr><td>Temp. Fahrenheit</td><td><span class=\"sensor\">");
+            client.println(1.8 * bme.readTemperature() + 32);
+            client.println(" *F</span></td></tr>");       
+            client.println("<tr><td>Pressure</td><td><span class=\"sensor\">");
+            client.println(bme.readPressure() / 100.0F);
+            client.println(" hPa</span></td></tr>");
+            client.println("<tr><td>Approx. Altitude</td><td><span class=\"sensor\">");
+            client.println(bme.readAltitude(SEALEVELPRESSURE_HPA));
+            client.println(" m</span></td></tr>"); 
+            client.println("<tr><td>Humidity</td><td><span class=\"sensor\">");
+            client.println(bme.readHumidity());
+            client.println(" %</span></td></tr>"); 
+            client.println("</body></html>");            
+            client.println();
+            break;
+          } else {
+            currentLine = "";
+          }
+        } else if (c != '\r') { 
+          currentLine += c;
+        }
+      }
+    }
+    header = "";
+    client.stop();
+    Serial.println("Client disconnected.");
+    Serial.println("");
+  }
 }
