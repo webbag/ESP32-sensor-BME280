@@ -1,13 +1,16 @@
+#include <iostream>
+#include "globals.h"
+
 #include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_BME280.h>
 #include <Adafruit_Sensor.h>
 
-#define SEALEVELPRESSURE_HPA (1013.25)
+// 77m npm = 1007.60 hpa
+// (11,3 hPa/100m)
+#define SEALEVELPRESSURE_HPA (1007.60) 
 
 Adafruit_BME280 bme; 
-const char* ssid     = "";
-const char* password = "";
 
 WiFiServer server(80);
 
@@ -60,7 +63,7 @@ void loop(){
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            client.println("<!DOCTYPE html><html>");
+            client.println("<!DOCTYPE html><html><meta charset=\"utf-8\"><title>ESP32 - BME280</title>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
             client.println("<link rel=\"icon\" href=\"data:,\">");
             client.println("<style>body { text-align: center; font-family: \"Trebuchet MS\", Arial;}");
@@ -69,22 +72,19 @@ void loop(){
             client.println("tr { border: 1px solid #ddd; padding: 12px; }");
             client.println("tr:hover { background-color: #bcbcbc; }");
             client.println("td { border: none; padding: 12px; }");
-            client.println(".sensor { color:white; font-weight: bold; background-color: #bcbcbc; padding: 1px; }");            
-            client.println("</style></head><body><h1>ESP32 with BME280</h1>");
-            client.println("<table><tr><th>MEASUREMENT</th><th>VALUE</th></tr>");
-            client.println("<tr><td>Temp. Celsius</td><td><span class=\"sensor\">");
+            client.println(".sensor {font-weight: bold; padding: 1px; }");            
+            client.println("</style></head><body><h1>ESP32 - BME280</h1>");
+            client.println("<table><tr><th>Pomiar</th><th>Wartość</th></tr>");
+            client.println("<tr><td>Temperatura</td><td><span class=\"sensor\">");
             client.println(bme.readTemperature());
             client.println(" *C</span></td></tr>");  
-            client.println("<tr><td>Temp. Fahrenheit</td><td><span class=\"sensor\">");
-            client.println(1.8 * bme.readTemperature() + 32);
-            client.println(" *F</span></td></tr>");       
-            client.println("<tr><td>Pressure</td><td><span class=\"sensor\">");
+            client.println("<tr><td>Ciśnienie</td><td><span class=\"sensor\">");
             client.println(bme.readPressure() / 100.0F);
             client.println(" hPa</span></td></tr>");
-            client.println("<tr><td>Approx. Altitude</td><td><span class=\"sensor\">");
+            client.println("<tr><td>Przybliżona wysokość</td><td><span class=\"sensor\">");
             client.println(bme.readAltitude(SEALEVELPRESSURE_HPA));
             client.println(" m</span></td></tr>"); 
-            client.println("<tr><td>Humidity</td><td><span class=\"sensor\">");
+            client.println("<tr><td>Wilgotność</td><td><span class=\"sensor\">");
             client.println(bme.readHumidity());
             client.println(" %</span></td></tr>"); 
             client.println("</body></html>");            
