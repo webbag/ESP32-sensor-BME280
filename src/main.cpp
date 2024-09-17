@@ -8,7 +8,7 @@
 
   // 77m npm = 1007.60 hpa
   // (11,3 hPa/100m)
-  #define SEALEVELPRESSURE_HPA (1007.60) 
+  #define SEALEVELPRESSURE_HPA (1013.25) 
 
   Adafruit_BME280 bme; 
 
@@ -33,8 +33,12 @@
     Serial.println(ssid);
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print(".");
+      delay(1000);
+      Serial.println("");
+      Serial.print("Connecting to ssid: ");
+      Serial.println(ssid);
+      Serial.println("IP address: ");
+      Serial.println(WiFi.localIP());
     }
     Serial.println("");
     Serial.println("WiFi connected.");
@@ -65,6 +69,7 @@
               client.println();
               client.println("<!DOCTYPE html><html><meta charset=\"utf-8\"><title>ESP32 - BME280</title>");
               client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+              client.println("<meta http-equiv=\"refresh\" content=\"2\">");  // Dodaj automatyczne odświeżanie
               client.println("<link rel=\"icon\" href=\"data:,\">");
               client.println("<style>body { text-align: center; font-family: \"Trebuchet MS\", Arial;}");
               client.println("table { border-collapse: collapse; width:35%; margin-left:auto; margin-right:auto; }");
